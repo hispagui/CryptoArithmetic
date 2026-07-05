@@ -1,4 +1,44 @@
 from ff_ec_arithmetic import FieldElement, Point, scalar_mul
+from ECDSA import *
+
+
+# Toy curve y^2 = x^3 + 2x + 2 (mod 17), (5,1) known point, 19 is the order
+p = 17
+a = FieldElement(2, p)
+b = FieldElement(2, p)
+x = FieldElement(5, p)
+y = FieldElement(1, p)
+P = Point(x, y, a, b)
+
+
+
+
+ecdsa = ECDSA(P, 19)
+
+private_alice, public_alice = ecdsa.generate_key_pair()
+print("Private key:", hex(private_alice))
+print("Public key: ", public_alice)
+ 
+message = b"Transfer 10 coins to Bob"
+r, s = ecdsa.sign(message, private_alice)
+print("\nSignature:")
+print("  r =", hex(r))
+print("  s =", hex(s))
+ 
+# Correct message + correct key -> valid
+print("\nVerify with correct message: ", ecdsa.verify(message, (r, s), public_alice))
+ 
+# Tampered message -> should fail
+tampered = b"Transfer 10000 coins to Bob"
+print("Verify with tampered message:", ecdsa.verify(tampered, (r, s), public_alice))
+ 
+# Wrong public key -> should fail
+_, wrong_public_key = ecdsa.generate_key_pair()
+print("Verify with wrong public key:", ecdsa.verify(message, (r, s), wrong_public_key))
+
+
+
+
 
 '''
 # Toy curve y^2 = x^3 + 2x + 2 (mod 17)
@@ -24,7 +64,7 @@ for k in range(20):
 
 
  # In hexadecimals
-
+'''
 '''
 print("secp256k1 (the Bitcoin curve)")
 
@@ -45,3 +85,4 @@ print(G_secp)
 
 identity = scalar_mul(N, G_secp)
 print("N * G is point at infinity:", identity.is_infinity())
+'''

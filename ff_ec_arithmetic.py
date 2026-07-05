@@ -74,6 +74,12 @@ class Point:
     """
     Keeps track of points on elliptic curves defined by y^2 = x^3 + ax + b (mod p)
     Some elliptic curve operation between them
+
+    ADD POINT COUNTING ALGO from SCHOOF (in O(log p))
+
+    MONTGOMERY CURVES ?
+
+    EDWARD CURVES ?
     """
     __slots__ = ("x", "y", "a", "b") # restricts Point to only have these attributes
 
