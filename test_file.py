@@ -1,5 +1,12 @@
 from ff_ec_arithmetic import FieldElement, Point, scalar_mul
 from ECDSA import *
+from SHA2 import SHA
+
+
+
+
+
+
 
 
 # Toy curve y^2 = x^3 + 2x + 2 (mod 17), (5,1) known point, 19 is the order
@@ -24,6 +31,10 @@ r, s = ecdsa.sign(message, private_alice)
 print("\nSignature:")
 print("  r =", hex(r))
 print("  s =", hex(s))
+
+
+
+print(ecdsa)
  
 # Correct message + correct key -> valid
 print("\nVerify with correct message: ", ecdsa.verify(message, (r, s), public_alice))
