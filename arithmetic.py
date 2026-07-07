@@ -1,6 +1,9 @@
 """
-Two classes
+Loris De Vos
+Finite Field arithmetic
+Group derived from elliptic curve
 """
+
 
 class FieldElement:
     """
@@ -28,7 +31,7 @@ class FieldElement:
     def __add__(self, other: "FieldElement") -> "FieldElement": # self+other
         self._check_same_field(other)
         return FieldElement((self.num + other.num) % self.prime, self.prime)
-    
+
     def __sub__(self, other : "FieldElement") -> "FieldElement": # self-other
         self._check_same_field(other)
         return FieldElement((self.num - other.num) % self.prime, self.prime)
@@ -53,7 +56,6 @@ class FieldElement:
                 result = (result * a) % self.prime
             a = (a*a) % self.prime
             n = n // 2 # division with remainder (discards rest)
-    
         return FieldElement(result, self.prime)
     
     def inverse(self) -> "FieldElement": # self^-1
@@ -69,6 +71,9 @@ class FieldElement:
         self._check_same_field(other)
         return self * other.inverse()
     
+
+
+
 
 class Point:
     """
@@ -91,6 +96,7 @@ class Point:
         self.b = b
         self.x = x
         self.y = y
+        q = self.a.prime
         if x is None and y is None:
             return
         if y * y != (x * x * x) + (a * x) + b:
@@ -108,7 +114,6 @@ class Point:
         if self.x is None:
             return "Point(infinity)"
         return f"Point({self.x.num},{self.y.num})"
-
 
     def is_infinity(self) -> bool:
         return self.x is None
@@ -146,6 +151,23 @@ class Point:
             return self
         else:
             return Point(self.x, - self.y, self.a, self.b)
+
+
+    def trace_frobenius(self, prime) -> "FieldElement":
+        return None
+    """
+    def schoof_algo(self) -> int:
+        M = 1, t = 1
+        while M <= 4*sqrt(self.q):
+            for prime in primes.prime_liste :
+                if not (prime % self.q == 0):
+                    t_prime
+
+        return None
+    """
+    
+    def order_point(self):
+        return None
         
 def scalar_mul(k: int, point: "Point") -> "Point":
     '''

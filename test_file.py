@@ -1,6 +1,20 @@
-from ff_ec_arithmetic import FieldElement, Point, scalar_mul
-from ECDSA import *
-from SHA2 import SHA
+from polynomial import Polynomial, PolynomialRing
+
+
+dic_1 = {(2,0):2, (1,1):1, (0,2):2}
+# 2x^2 + xy + 2y^2
+dic_2 = {(1,0):2, (1,1):2, (0,1):4}
+# 2x + 2xy + 4y
+R = PolynomialRing("x","y", order = 9)
+P_1 = Polynomial(R, dic_1)
+
+P_2 = Polynomial(R, dic_2)
+
+print(P_1)
+print(P_2)
+for key, val in list(dic_1.items()):
+    print(key)
+    print(val)
 
 
 
@@ -9,6 +23,17 @@ from SHA2 import SHA
 
 
 
+
+
+
+
+
+
+
+
+
+
+"""
 # Toy curve y^2 = x^3 + 2x + 2 (mod 17), (5,1) known point, 19 is the order
 p = 17
 a = FieldElement(2, p)
@@ -16,9 +41,6 @@ b = FieldElement(2, p)
 x = FieldElement(5, p)
 y = FieldElement(1, p)
 P = Point(x, y, a, b)
-
-
-
 
 ecdsa = ECDSA(P, 19)
 
@@ -46,7 +68,7 @@ print("Verify with tampered message:", ecdsa.verify(tampered, (r, s), public_ali
 # Wrong public key -> should fail
 _, wrong_public_key = ecdsa.generate_key_pair()
 print("Verify with wrong public key:", ecdsa.verify(message, (r, s), wrong_public_key))
-
+"""
 
 
 

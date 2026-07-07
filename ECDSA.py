@@ -10,7 +10,7 @@ sign(message, private_key) -> signature
 verify(message, signature, public_key) -> bool
 """
 
-from ff_ec_arithmetic import Point, scalar_mul
+from arithmetic import Point, scalar_mul
 from SHA2 import SHA
 from random import randint
 
