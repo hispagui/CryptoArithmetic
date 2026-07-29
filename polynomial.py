@@ -83,6 +83,18 @@ class Polynomial :
         s = s.replace("+ -", "- ")
         return s
     
+    def is_univariate(self) -> bool:
+        self.clean()  # zero-coefficient monomials don't count
+        return all(all(e == 0 for e in mono[1:]) for mono in self.terms.keys())
+    
+    def _require_univariate(self, op: str):
+        if not self.is_univariate():
+            raise ValueError(
+                f"Polynomial.{op}: {self!r} has a nonzero exponent in a "
+                f"variable other than '{self.ring.variables[0]}' - {op} is "
+                "only defined for univariate polynomials"
+            )
+
     def __add__(self, other : "Polynomial") -> "Polynomial":
         if self.ring is not other.ring:
             raise ValueError("Polynomials belong to different rings.")
@@ -116,6 +128,19 @@ class Polynomial :
         result.clean()
         return result
 
+    def __pow__(self, n : int) -> "Polynomial":
+        #Repeated squarring like in FieldElement.__pow__ 
+        if n < 0:
+            raise ValueError("Negative exponents are not supported for polynomials")
+        result = self.ring({(0,) * self.ring.n: 1})  # the constant polynomial 1
+        base = self
+        while n > 0:
+            if n & 1:
+                result = result * base
+            base = base * base
+            n >>= 1
+        return result
+
 
     def __truediv__(self, other) -> list:
         # polynomial long division algo
@@ -131,22 +156,30 @@ class Polynomial :
         is_field = isinstance(self.ring.order, int)
 
         def leading_term(poly):
-            m = max(poly.terms.keys())
+            keys = [m for m, c in poly.terms.items() if not poly.is_zero(c)]
+            if not keys:
+                return None
+            m = max(keys)
             return m, poly.terms[m]
         
-        while R.terms:
-            lm_r, lc_r = leading_term(R)
-            lm_d, lc_d = leading_term(other)
+        lt_d = leading_term(other)
+        if lt_d is None:
+            raise ZeroDivisionError("Division by zero polynomial")
+        lm_d, lc_d = lt_d
+
+        while True:
+            lt_r = leading_term(R)
+            if lt_r is None:
+                break
+            lm_r, lc_r = lt_r
             if not monomial_divides(lm_d, lm_r):
                 break
-
             if is_field:
-                lc_q = lc_r * lc_d.invers()
+                lc_q = lc_r * lc_d.inverse()
             else:
                 if lc_r % lc_d != 0:
                     break
                 lc_q = lc_r // lc_d
-            
             lm_q = monomial_div(lm_r, lm_d)
             t = self.ring({lm_q: lc_q})
             Q = Q + t
@@ -155,31 +188,91 @@ class Polynomial :
         Q.clean()
         return Q, R
 
+    
+    
+    # Following methods only work for univariate polynomials
+    def poly_degree(self) -> int:
+        self.clean()
+        if not self.terms:
+            return -1
+        return max(ex for (ex, _ey) in self.terms.keys())
+    
+    def reduce_mod(poly: "Polynomial", modpoly: "Polynomial") -> "Polynomial":
+    """Remainder of poly divided by modpoly (poly mod modpoly)."""
+    _, r = poly / modpoly
+    r.clean()
+    return r
+
+
+#---------------------------------------------------
+# Division polynomial
+#---------------------------------------------------
+
+def reduce_mod_curve(poly : "Polynomial", a : int, b:int) -> "Polynomial":
+    """
+    Each monomial c * x^ex * y^ey is rewritten as 
+    c * x^ex * y^ey = c * x^ex * (y^2)^k * y^r
+    with y^2 = (x^3 + a*x + b), k = ey//2 and r = ey % 2
+    making every monomial in y have exponent 0 or 1 (since y^r)
+    """
+    R = poly.ring
+    g = Polynomial(R, {(3, 0): 1, (1, 0): a, (0, 0): b})  # x^3 + a*x + b
+    result = R()
+    for (ex, ey), coeff in poly.terms.items(): # as in dictionnary
+        if poly.is_zero(coeff):
+            continue
+        k, r = divmod(ey, 2)
+        gk = g ** k  # (x^3+ax+b)^k ; g**0 is the identity polynomial "1"
+        term = Polynomial(R, {(ex, r): coeff}) * gk
+        result = result + term
+    result.clean()
+    return result
 
 def div_poly_schoof(n : int, a : int , b : int, order_field = None) -> "Polynomial":
+    '''
+    Builds [psi_0, psi_1, ..., psi_n] for y^2 = x^3+ax+b over F_p
+    (following https://en.wikipedia.org/wiki/Division_polynomials)
+    '''
     R = PolynomialRing("x", "y", order = order_field)
-    psi0 = Polynomial(R, {(0,0) : 0})  #0
-    psi1 = Polynomial(R, {(0,0) : 1})  #1
-    psi2 = Polynomial(R, {(0,1) : 2})  #2y
-    psi3 = Polynomial(R, {(4,0):3, (2,0):(6*a), (1,0):(12*b), (0,0):(-a)})
-    psi4 = Polynomial(R, {(0,1) : 4}) * Polynomial(R, {(6,0):1, (4,0):(5*a), (3,0):(20*b), (2,0):((-5)*a*a), (1,0):((-4)*a*b), (0,0): (-8*b*b - a*a*a)})  #4y*...
-    psi_liste = [psi0, psi1, psi2, psi3, psi4]
-    count = len(psi_liste) -1
-    if n < 5:
-        return psi_liste[n]
-    for m in range(4, n):
+    size = max(n +1, 5)
+    psi = [None] * size
+    psi[0]= Polynomial(R, {(0,0) : 0})  #0
+    psi[1] = Polynomial(R, {(0,0) : 1})  #1
+    psi[2] = Polynomial(R, {(0,1) : 2})  #2y
+    psi[3] = Polynomial(R, {(4,0):3, (2,0):(6*a), (1,0):(12*b), (0,0):(-a)})
+    psi[4] = Polynomial(R, {(0,1) : 4}) * Polynomial(R, {(6,0):1, (4,0):(5*a), (3,0):(20*b), (2,0):((-5)*a*a), (1,0):((-4)*a*b), (0,0): (-8*b*b - a*a*a)})  #4y*...
+
+    for m in range(5, n+1):
         count += 1
         if m % 2 == 1:
-            psi2m = (psi_liste[((m-1)//2) +2] * psi_liste[(m-1)//2] * psi_liste[(m-1)//2] * psi_liste[(m-1)//2]) - (psi_liste[((m-1)//2) -1] * psi_liste[((m-1)//2) +1] * psi_liste[((m-1)//2) +1] * psi_liste[((m-1)//2) +1])
-            psi_liste[(count%5)] = psi2m
-            last = psi2m
-        if m % 2 == 0:
-            psi2m1 = ((psi_liste[m//2] / psi2)[0]) * (((psi_liste[(m//2)+2]) * psi_liste[(m//2)-1] * psi_liste[(m//2)-1]) -(psi_liste[(m//2)-2] * psi_liste[(m//2)+1] * psi_liste[(m//2)+1]))
-            # above rest should always be zero
-            # in every pair m, there is at least a factor 2y
-            psi_liste[(count%5)] = psi2m1
-            last = psi2m
-    return last
+            k = (m-1)//2
+            raw = (psi[k +2] * psi[k] * psi[k] * psi[k] - psi[k -1] * psi[k +1] * psi[k +1] * psi[k +1])
+            psi[m] = raw
+        else:
+            k = m // 2
+            raw = psi[k] * (psi[k+2] * psi[k-1] * psi[k-1] -psi[k-2] * psi[k+1] * psi[k+1])
+            dividend = reduce_mod_curve(raw, a, b)   # now y has exponents only 1
+            # so div = 2y * y*f(x) = 2y^2 * f(x), we can use the fact that y^2 = x^3+ax+b
+            diviseur = Polynomial({(3, 0): 2, (1, 0): 2 * a, (0, 0): 2 * b}) # 2*(x^3+a*x+b)
+            quot, rem = dividend / diviseur
+            rem.clean()
+            if rem.terms:
+                raise ArithmeticError(
+                    f"division_polynomials: psi_{m} computation had nonzero remainder "
+                    "(unexpected - check curve parameters / characteristic)"
+                )
+            psi[m] = Polynomial({(ex, 1) : c for (ex, ey), c in quot.terms.items()})
+            
+    return psi[:n+1]
+
+
+
+
+
+
+
+
+
 
 def frobenius_trace_mod_l(prime : int, a : int, b : int): # from Schoof
     h = div_poly_schoof(prime, a, b)
