@@ -1,5 +1,4 @@
 """
-Loris De Vos
 Sha224, 256, 384 and 512 hashing algorithms
 
 SHA object : (P, var)

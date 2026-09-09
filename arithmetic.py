@@ -1,7 +1,6 @@
 """
-Loris De Vos
 Finite Field arithmetic
-Group derived from elliptic curve
+Groups derived from elliptic curve
 """
 
 

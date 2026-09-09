@@ -1,5 +1,4 @@
 """
-Loris De Vos
 Elliptic Curve Digital Signature Algorithm, uses existing finite field and elliptic curve arithmetic, as well as SHA for hashing
 
 ECDSA object : (P, n)

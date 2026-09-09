@@ -1,9 +1,7 @@
 """
-Loris De Vos
-
-terms should be a dic {(2,1,0):3, (0,2,0):-5, (0,0,0):7}
-encods 3*x^2*y - 5*y^2 + 7 
-if order is not None, a,b,c should be FieldElement(a,order), FieldElement(b,order), FieldElement(c,order)
+terms should be a dictionnary {(2,1,0):3, (0,2,0):-5, (0,0,0):7}
+    encods 3*x^2*y - 5*y^2 + 7 
+if the order is not None (i.e. not in Z); a,b,c should be FieldElement(a,order), FieldElement(b,order), FieldElement(c,order)
 
 handles polynomials over Z (default) and over finite fiedls of order p^n            
 """
@@ -11,9 +9,10 @@ handles polynomials over Z (default) and over finite fiedls of order p^n
 from collections import defaultdict
 from arithmetic import FieldElement
 
-def monomial_divides(a, b):
+def monomial_divides(a : int, b : int):
+
     return all(x <= y for x, y in zip(a, b))
-def monomial_div(a, b):
+def monomial_div(a : int, b : int):
     return tuple(y - x for x, y in zip(a, b))
 
 
@@ -22,6 +21,7 @@ def monomial_div(a, b):
 
 
 class PolynomialRing :
+
     def __init__(self, *variables : str, order = None):
         if not variables:
             raise ValueError("At least one variable is required.")
@@ -34,17 +34,20 @@ class PolynomialRing :
 
 class Polynomial :
     def __init__(self, ring : "PolynomialRing", terms : dict):
+        # terms as above
         self.ring = ring
         self.terms = defaultdict(self._zero, terms)
         for key, val in list(self.terms.items()): # can also compute over F_q(x,y,z)
             self.terms[key] = self._coher(val)
 
     def _coher(self, coeff ):
+        # makes sure coedd are of the form FieldElement
         if isinstance(self.ring.order, int) and not isinstance(coeff, FieldElement):
             return FieldElement(coeff, self.ring.order)
         return coeff
     
     def _zero(self):
+        # type of default valuie for "missing keys"
         if isinstance(self.ring.order, int):
             return FieldElement(0, self.ring.order)
         return 0
@@ -58,6 +61,7 @@ class Polynomial :
         self.terms = defaultdict(self._zero, {m: c for m, c in self.terms.items() if not self.is_zero(c)})
     
     def __repr__(self) -> str:
+        # useful for display
         if not self.terms:
             return "0"
         vars = self.ring.variables
@@ -95,6 +99,8 @@ class Polynomial :
                 "only defined for univariate polynomials"
             )
 
+    # dunder methods
+
     def __add__(self, other : "Polynomial") -> "Polynomial":
         if self.ring is not other.ring:
             raise ValueError("Polynomials belong to different rings.")
@@ -129,7 +135,7 @@ class Polynomial :
         return result
 
     def __pow__(self, n : int) -> "Polynomial":
-        #Repeated squarring like in FieldElement.__pow__ 
+        # repeated squarring like in FieldElement.__pow__ 
         if n < 0:
             raise ValueError("Negative exponents are not supported for polynomials")
         result = self.ring({(0,) * self.ring.n: 1})  # the constant polynomial 1
@@ -141,10 +147,8 @@ class Polynomial :
             n >>= 1
         return result
 
-
     def __truediv__(self, other) -> list:
-        # polynomial long division algo
-        # actually this is division with rest
+        # polynomial long division algo (with rest)
         if not other.terms:
             raise ZeroDivisionError("Division by zero polynomial")
         if self.ring is not other.ring:
@@ -190,18 +194,64 @@ class Polynomial :
 
     
     
-    # Following methods only work for univariate polynomials
-    def poly_degree(self) -> int:
-        self.clean()
+    # the following methods only work for univariate polynomials
+    def degree(self) -> int:
+        self._require_univariate()
         if not self.terms:
             return -1
-        return max(ex for (ex, _ey) in self.terms.keys())
-    
-    def reduce_mod(poly: "Polynomial", modpoly: "Polynomial") -> "Polynomial":
-    """Remainder of poly divided by modpoly (poly mod modpoly)."""
-    _, r = poly / modpoly
-    r.clean()
-    return r
+        return max(mono[0] for mono in self.terms.keys())
+
+    def mod(self, modpoly: "Polynomial") -> "Polynomial":
+        # remainder of self divided by modpoly (self mod modpoly)
+        # uses __truediv__
+        self._require_univariate("mod")
+        modpoly._require_univariate("mod")
+        _, r = self / modpoly
+        r.clean()
+        return r
+
+    def xgcd(self, other: "Polynomial") -> list:
+        # Extended Euclidean algorithm, returns (gcd, u, v) with
+        # u*self + v*other == gcd.
+        self._require_univariate("xgcd")
+        other._require_univariate("xgcd")
+        R = self.ring
+        zero_mono = (0,) * R.n
+        zero = R({zero_mono: 0})
+        one = R({zero_mono: 1})
+        r0, r1 = self, other
+        s0, s1 = one, zero
+        t0, t1 = zero, one
+ 
+        def is_zero_p(poly):
+            poly.clean()
+            return not poly.terms
+ 
+        while not is_zero_p(r1):
+            q, r = r0 / r1
+            r0, r1 = r1, r
+            s0, s1 = s1, s0 - q * s1
+            t0, t1 = t1, t0 - q * t1
+        return r0, s0, t0
+
+
+    def modexp(self, exp: int, modpoly: "Polynomial") -> "Polynomial":
+        # (self**exp mod modpoly), via square-and-multiply, O(log exp)
+        # polynomial multiplications instead of `exp` of them
+        self._require_univariate("modexp")
+        modpoly._require_univariate("modexp")
+        R = self.ring
+        zero_mono = (0,) * R.n
+        result = R({zero_mono: 1})
+        b = self.mod(modpoly)
+        e = exp
+        while e > 0:
+            if e & 1:
+                result = (result * b).mod(modpoly)
+            b = (b * b).mod(modpoly)
+            e >>= 1
+        return result
+ 
 
 
 #---------------------------------------------------
@@ -209,12 +259,9 @@ class Polynomial :
 #---------------------------------------------------
 
 def reduce_mod_curve(poly : "Polynomial", a : int, b:int) -> "Polynomial":
-    """
-    Each monomial c * x^ex * y^ey is rewritten as 
-    c * x^ex * y^ey = c * x^ex * (y^2)^k * y^r
-    with y^2 = (x^3 + a*x + b), k = ey//2 and r = ey % 2
-    making every monomial in y have exponent 0 or 1 (since y^r)
-    """
+    # each monomial c * x^ex * y^ey is rewritten as c * x^ex * (y^2)^k * y^r
+    # with y^2 = (x^3 + a*x + b), k = ey//2 and r = ey % 2 (recall standard equation for elliptic curves)
+    # making every monomial in y have exponent 0 or 1 (since y^r)
     R = poly.ring
     g = Polynomial(R, {(3, 0): 1, (1, 0): a, (0, 0): b})  # x^3 + a*x + b
     result = R()
@@ -229,10 +276,9 @@ def reduce_mod_curve(poly : "Polynomial", a : int, b:int) -> "Polynomial":
     return result
 
 def div_poly_schoof(n : int, a : int , b : int, order_field = None) -> "Polynomial":
-    '''
-    Builds [psi_0, psi_1, ..., psi_n] for y^2 = x^3+ax+b over F_p
-    (following https://en.wikipedia.org/wiki/Division_polynomials)
-    '''
+    # builds [psi_0, psi_1, ..., psi_n] for y^2 = x^3+ax+b over F_p (or Z)
+    # following https://en.wikipedia.org/wiki/Division_polynomials
+    
     R = PolynomialRing("x", "y", order = order_field)
     size = max(n +1, 5)
     psi = [None] * size
@@ -271,14 +317,37 @@ def div_poly_schoof(n : int, a : int , b : int, order_field = None) -> "Polynomi
 
 
 
+class ModPsiElement:
+    def __init__(self):
+        pass
+
+def is_prime(n : int) -> bool:
+    pass
+
+def next_prime(n : int) -> int:
+    pass
+
+
 
 
 
 def frobenius_trace_mod_l(prime : int, a : int, b : int): # from Schoof
     h = div_poly_schoof(prime, a, b)
-    pi_l = 
+    pi_l = None
+
+def CRT(residues : list, moduli : list) -> tuple:
+    pass
+
+def schoof_algo(a : int, b : int, p : int) -> int:
+    pass
+
+
+
+
 
 
 # thm : the frobenius endomorphism allows one to compute nb. of points on curve over F_q
 # over F_q, the frob. endo. satisfies phi^2 + t*phi + q = 0
 # where t = q + 1 - #E(F_q) 
+
+
