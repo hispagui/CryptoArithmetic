@@ -5,10 +5,8 @@ Groups derived from elliptic curve
 
 
 class FieldElement:
-    """
-    An element of a group GF(p) is an integer mod a prime p
-    Some arithmetic operations (mod p)
-    """
+    # an element of a group GF(p) is an integer mod a prime p
+    # some arithmetic operations (mod p)
     def __init__(self, num:int, prime:int):
         num = num % prime 
         self.num = num
@@ -43,10 +41,9 @@ class FieldElement:
         return FieldElement((self.num * const) % self.prime, self.prime)
 
     def __pow__(self, exp : int) -> "FieldElement": # self**exp
-        # This is basically the pow(a,b,modulo) function in python3 : Exponentiation by squarring
-        # Fast computation in O(log exp)
-        # From Fermat little theorem : a^p-1 ≡ 1 (mod p)
-        # We can reduce a^n ≡ a^{n mod p-1} (mod p)
+        # this is basically the pow(a,b,modulo) function in python3 : Exponentiation by squarring
+        # fast computation in O(log exp)    fermat little theorem : a^p-1 ≡ 1 (mod p)
+        # we can reduce a^n ≡ a^{n mod p-1} (mod p)
         n = exp % (self.prime - 1)
         result = 1
         a = self.num
@@ -58,15 +55,15 @@ class FieldElement:
         return FieldElement(result, self.prime)
     
     def inverse(self) -> "FieldElement": # self^-1
-        # From Fermat little theorem : a^-1 ≡ a^p-2 (mod p)
-        return FieldElement(self.num ** (self.prime - 2), self.prime)
+        # from Fermat little theorem : a^-1 ≡ a^p-2 (mod p)
+        return self.__pow__(self.prime - 2)
     
     def __neg__(self) -> "FieldElement": # -self
-        # Returns -a (mod p)
+        # returns -a (mod p)
         return FieldElement((-self.num) % self.prime, self.prime)
     
     def __truediv__(self, other : "FieldElement") -> "FieldElement": # self/other
-        # Returns a/b (mod p) for a,b in GF(p)
+        # returns a/b (mod p) for a,b in GF(p)
         self._check_same_field(other)
         return self * other.inverse()
     
@@ -154,6 +151,7 @@ class Point:
 
     def trace_frobenius(self, prime) -> "FieldElement":
         return None
+    
     """
     def schoof_algo(self) -> int:
         M = 1, t = 1
@@ -166,23 +164,20 @@ class Point:
     """
     
     def order_point(self):
+        # METHOD CALLS SCHOOF ALGO
         return None
         
 def scalar_mul(k: int, point: "Point") -> "Point":
-    '''
-    Uses double-and-add method (runes in O(log k) instead of O(k))
-    This uses bit representation of integers
-        Exemple : k = 1,000,000 < 2^20
-        The algo performs roughly 30 operations (20 doublings, and 10 additions)
-        Instead of 1,000,000
-    '''
+    # uses double-and-add method (runes in O(log k) instead of O(k))
+    # this uses bit representation of integers
+    # exemple : k = 1,000,000 < 2^20, algo performs roughly 30 operations (20 doublings, and 10 additions) instead of 1,000,000
     if k < 0:
         return scalar_mul(-k, point).inverse()
     
     res = Point(None, None, point.a, point.b)
     addend = point
     while k:
-        if k & 1:               # if the current bit is 1, add current power of two
+        if k & 1:          # if the current bit is 1, add current power of two
             res = res + addend
         addend = addend + addend  # double
         k >>= 1 # right bit shift
@@ -190,3 +185,33 @@ def scalar_mul(k: int, point: "Point") -> "Point":
     
     
 
+def extended_gcd(a:int, b:int) -> tuple:
+    # extended Euclidean algorithm
+    # returns gcd(a,b), x, y such that ax + by = gcd(a,b)
+    old_r, r = a, b
+    old_s, s = 1, 0
+    old_t, t = 0, 1
+    while r != 0:
+        quotient = old_r // r
+        old_r, r = r, old_r - quotient * r
+        old_s, s = s, old_s - quotient * s
+        old_t, t = t, old_t - quotient * t
+    return old_r, old_s, old_t
+
+def crt(residues: list, moduli: list) -> list:
+    # Chinese Remainder Theorem
+    # given residues [r1, r2, ...] and pairwise coprime moduli [m1, m2, ...]
+    # returns   (x, M) with M = product(moduli) and x is the unique solution to x ≡ r_i (mod m_i) for every i
+    if len(residues) != len(moduli):
+        raise ValueError("residues and moduli must have the same length")
+    if not residues or not moduli:
+        raise ValueError("residues and moduli must be non-empty")
+    x, M = residues[0] % moduli[0], moduli[0]
+    for r_i, m_i in zip(residues[1:], moduli[1:]):
+        g, p, _q ! extended_gcd(M, m_i)
+        if (r_i - x_i) % g != 0:
+            raise ValueError("moduli are not pairwise coprime")
+        lcm = M // g * m_i
+        x = (x +(r_i - x_i) // g * p % (m_i // g) * M) % lcm
+        M = lcm
+    return x % M, M
