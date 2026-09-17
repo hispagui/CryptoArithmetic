@@ -8,8 +8,8 @@ elliptic-curve cryptography and point counting. The main modules are
 
 ### Prime field elements
 
-`FieldElement` represents an element of the finite field \(\mathbb{F}_p\) as
-an integer reduced modulo `p`.
+`FieldElement` represents an element of the finite field $\mathbb{F}_p$ as
+an integer reduced modulo $p$.
 
 Supported operations include:
 
@@ -22,10 +22,10 @@ Supported operations include:
 Elements from different fields cannot be combined. For example:
 
 The implementation uses Fermat's little theorem for inverses:
-\[
+```math
 a^{-1} = a^{p-2} \pmod p.
-\]
-This assumes that `p` is prime and that the element being inverted is
+```
+This assumes that $p$ is prime and that the element being inverted is
 nonzero.
 
 ### Elliptic curves
@@ -34,9 +34,9 @@ An elliptic curve is an abelian variety; it has a group law which is abelian, wh
 
 `Point` models points on a short Weierstrass curve
 
-\[
+```math
 y^2 = x^3 + ax + b \pmod p.
-\]
+```
 
 The constructor validates that finite points lie on the curve. The point at
 infinity is represented by `Point(None, None, a, b)` and acts as the identity
@@ -48,7 +48,7 @@ Implemented operations are:
 - point addition, including the identity, inverse, doubling, and vertical-line
 	cases;
 - `Point.inverse()` for the additive inverse;
-- `scalar_mul(k, point)` using double-and-add in \(O(\log k)\) operations.
+- `scalar_mul(k, point)` using double-and-add in $O(\log k)$ operations.
 
 ## `polynomial.py`
 
@@ -56,7 +56,7 @@ Implemented operations are:
 
 `PolynomialRing(*variables, order=None)` creates a polynomial ring over the
 integers by default. When `order=p` is supplied, coefficients are coerced to
-`FieldElement` values in \(\mathbb{F}_p\).
+`FieldElement` values in $\mathbb{F}_p$.
 
 Polynomials are represented by dictionaries whose keys are exponent tuples.
 For example, in `PolynomialRing("x", "y")`,
@@ -73,8 +73,6 @@ print(f)  # 3x^2y - 5y^2 + 7
 
 - addition, subtraction, multiplication, and nonnegative powers;
 - polynomial long division, returning `(quotient, remainder)`;
-- zero-term cleanup with `clean()` and zero testing with `is_zero()`;
-- `degree()` for univariate polynomials;
 - `mod()` for polynomial remainders;
 - `xgcd()` for the extended Euclidean algorithm;
 - `modexp()` for modular exponentiation by repeated squaring.
@@ -85,19 +83,14 @@ require both operands to belong to the same `PolynomialRing` instance.
 
 ### Elliptic curves and Schoof support
 
-The module also contains helpers for the curve
-
-\[
-y^2 = x^3 + ax + b.
-\]
-
-`reduce_mod_curve()` rewrites powers of `y` using
-`y^2 = x^3 + ax + b`, reducing the exponent of `y` to zero or one. This is
-useful when working in the coordinate ring of the curve.
+The module also contains helpers for the short Weierstrass curve,
+`reduce_mod_curve()` rewrites powers of $y$ using
+$y^2 = x^3 + ax + b$, reducing the exponent of $y$ to zero or one. This is useful when working in the coordinate ring of the curve.
 
 `div_poly_schoof()` is intended to construct the division polynomials
-\(\psi_0, \ldots, \psi_n\), which are used by Schoof's algorithm to study
-the action of multiplication and Frobenius on elliptic-curve torsion points.
+$\psi_0, \ldots, \psi_n$, which are used by Schoof's algorithm to study the action of multiplication and Frobenius on elliptic-curve torsion points.
+
+
 
 
 
@@ -107,4 +100,4 @@ This projet also contains a few famous hashing algorithms such as the SHA 224, 2
 
 ## Public key crypto
 
-Classical implementation of Elliptic Curve Digital Signature Algorithm, application of `Points` in `arithmetic.py`.
+And also a classical implementation of Elliptic Curve Digital Signature Algorithm, (an application of `Points` in `arithmetic.py`).
