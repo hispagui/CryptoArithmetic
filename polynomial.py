@@ -101,7 +101,6 @@ class Polynomial :
             )
 
     # dunder methods
-
     def __add__(self, other : "Polynomial") -> "Polynomial":
         if self.ring is not other.ring:
             raise ValueError("Polynomials belong to different rings.")
@@ -196,8 +195,14 @@ class Polynomial :
     
     
     # the following methods only work for univariate polynomials
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Polynomial) or self.ring is not other.ring:
+            return NotImplemented
+        self.clean(); other.clean()
+        return dict(self.terms) == dict(other.terms)
+        
     def degree(self) -> int:
-        self._require_univariate()
+        self._require_univariate("degree")
         if not self.terms:
             return -1
         return max(mono[0] for mono in self.terms.keys())
@@ -210,6 +215,11 @@ class Polynomial :
         _, r = self / modpoly
         r.clean()
         return r
+
+    def is_zero_poly(self) -> bool:
+        # whole-polynomial zero test (is_zero(coeff) tests a single coefficient)
+        self.clean()
+        return not self.terms
 
     def xgcd(self, other: "Polynomial") -> list:
         # Extended Euclidean algorithm, returns (gcd, u, v) with
@@ -224,16 +234,25 @@ class Polynomial :
         s0, s1 = one, zero
         t0, t1 = zero, one
  
-        def is_zero_p(poly):
-            poly.clean()
-            return not poly.terms
- 
-        while not is_zero_p(r1):
+        while not r1.is_zero_poly():
             q, r = r0 / r1
             r0, r1 = r1, r
             s0, s1 = s1, s0 - q * s1
             t0, t1 = t1, t0 - q * t1
         return r0, s0, t0
+
+    def scale(self, c) -> "Polynomial":
+        # self * c for a scalar c (int or FieldElement)
+        return self * self.ring({(0,) * self.ring.n: c})
+
+    def inverse_mod(self, modpoly: "Polynomial"):
+        # inverse of self modulo modpoly (over a field), or None if not coprime
+        g, u, _ = self.mod(modpoly).xgcd(modpoly)
+        g.clean()
+        const = (0,) * self.ring.n
+        if len(g.terms) != 1 or const not in g.terms:
+            return None
+        return u.scale(g.terms[const].inverse()).mod(modpoly)
 
 
     def modexp(self, exp: int, modpoly: "Polynomial") -> "Polynomial":

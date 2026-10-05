@@ -1,9 +1,8 @@
 """
 Elliptic Curve Digital Signature Algorithm, uses existing finite field and elliptic curve arithmetic, as well as SHA for hashing
-
-ECDSA object : (P, n)
-P : point on an elliptic curve F that generates a subgroup G of E(F) of order n
-n : order of G, should be prime
+    ECDSA object : (P, n)
+    P : point on an elliptic curve F that generates a subgroup G of E(F) of order n
+    n : order of G, should be prime
 
 sign(message, private_key) -> signature
 verify(message, signature, public_key) -> bool
@@ -28,8 +27,6 @@ def pow_mod(num:int, exponent:int, prime:int):
 def inv_mod(num : int, prime : int):
     # Fermat little theorem a^-1 ≡ a^p-2 (mod p)
     return pow_mod(num, prime-2, prime)
-
-
 
 
 
@@ -61,7 +58,7 @@ class ECDSA:
     def sign(self, message : bytes, private_key : int) -> list:
         """ 
         Alice wantrs to sign a message
-        Can check algo on wikipedia of ECDSA
+        Can check algo from wikipedia (ECDSA)
         """
         hash = SHA(message, "sha256")
         e = hash.hash()

@@ -81,15 +81,16 @@ Division, remainders, the extended Euclidean algorithm, and modular
 exponentiation require univariate polynomials. Polynomial operations also
 require both operands to belong to the same `PolynomialRing` instance.
 
-### Elliptic curves and Schoof support
+## `schoof.py`
 
-The module also contains helpers for the short Weierstrass curve,
-`reduce_mod_curve()` rewrites powers of $y$ using
-$y^2 = x^3 + ax + b$, reducing the exponent of $y$ to zero or one. This is useful when working in the coordinate ring of the curve.
+For short Weierstrass curve $y^2 = x^3 + ax + b$, schoof's algo computes the number of points on that curve over a field F_q (we denote the curve by $E$).
 
-`div_poly_schoof()` is intended to construct the division polynomials
-$\psi_0, \ldots, \psi_n$, which are used by Schoof's algorithm to study the action of multiplication and Frobenius on elliptic-curve torsion points.
+This is the classic Frobenius map : $\pi : (x,y) \rightarrow (x^q, y^q)$ over $\widebar{E}$ where $\widebar{E}$ is the initial curve extended over $\widebar{\mathbb{F}_q}$ is an endomorphism.
 
+The trick now is that the Frobenius map satisfies the characteristic equation $\pi^2 - t \pi + q = 0$, where $t = q + 1 - \mid E \mid$.
+For a proof see [???]
+
+We want to comput $t$ in order to obtain the $\mid E \mid$, the number of points on $E$.
 
 
 

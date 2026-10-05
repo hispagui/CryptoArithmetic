@@ -1,9 +1,8 @@
 """
-Sha224, 256, 384 and 512 hashing algorithms
-
-SHA object : (P, var)
-P : plaintext to hash (of any bit size)
-var : what variant of sha from the 4 above
+SHA 224, 256, 384 and 512 hashing algorithms
+    SHA object : (P, var)
+    P : plaintext to hash (of any bit size)
+    var : what variant of sha from the 4 above
 
 hash() -> str of hash in hexadecimal
 """
