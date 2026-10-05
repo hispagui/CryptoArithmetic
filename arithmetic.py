@@ -1,6 +1,8 @@
 """
+Loris De Vos
 Finite Field arithmetic
-Groups derived from elliptic curve
+Groups derived from elliptic curves
+
 """
 
 
@@ -73,14 +75,11 @@ class FieldElement:
 
 class Point:
     """
-    Keeps track of points on elliptic curves defined by y^2 = x^3 + ax + b (mod p)
-    Some elliptic curve operation between them
-
-    ADD POINT COUNTING ALGO from SCHOOF (in O(log p))
-
-    MONTGOMERY CURVES ?
-
-    EDWARD CURVES ?
+    keeps track of points on elliptic curves defined by y^2 = x^3 + ax + b (mod p)
+    some elliptic curve operation between them
+    TO IMPLEMENT :  
+        MONTGOMERY CURVES ?
+        EDWARD CURVES ?
     """
     __slots__ = ("x", "y", "a", "b") # restricts Point to only have these attributes
 
@@ -149,26 +148,11 @@ class Point:
             return Point(self.x, - self.y, self.a, self.b)
 
 
-    def trace_frobenius(self, prime) -> "FieldElement":
-        return None
-    
-    """
-    def schoof_algo(self) -> int:
-        M = 1, t = 1
-        while M <= 4*sqrt(self.q):
-            for prime in primes.prime_liste :
-                if not (prime % self.q == 0):
-                    t_prime
+ 
 
-        return None
-    """
-    
-    def order_point(self):
-        # METHOD CALLS SCHOOF ALGO
-        return None
         
 def scalar_mul(k: int, point: "Point") -> "Point":
-    # uses double-and-add method (runes in O(log k) instead of O(k))
+    # uses double-and-add method (runs in O(log k) instead of O(k))
     # this uses bit representation of integers
     # exemple : k = 1,000,000 < 2^20, algo performs roughly 30 operations (20 doublings, and 10 additions) instead of 1,000,000
     if k < 0:
@@ -201,17 +185,18 @@ def extended_gcd(a:int, b:int) -> tuple:
 def crt(residues: list, moduli: list) -> list:
     # Chinese Remainder Theorem
     # given residues [r1, r2, ...] and pairwise coprime moduli [m1, m2, ...]
-    # returns   (x, M) with M = product(moduli) and x is the unique solution to x ≡ r_i (mod m_i) for every i
+    # returns (x, M) with M = product(moduli) and x is the unique solution to x ≡ r_i (mod m_i) for every i
     if len(residues) != len(moduli):
         raise ValueError("residues and moduli must have the same length")
-    if not residues or not moduli:
+    if not residues:
         raise ValueError("residues and moduli must be non-empty")
+    
     x, M = residues[0] % moduli[0], moduli[0]
     for r_i, m_i in zip(residues[1:], moduli[1:]):
-        g, p, _q ! extended_gcd(M, m_i)
-        if (r_i - x_i) % g != 0:
+        g, p, _q = extended_gcd(M, m_i)
+        if (r_i - x) % g != 0:
             raise ValueError("moduli are not pairwise coprime")
         lcm = M // g * m_i
-        x = (x +(r_i - x_i) // g * p % (m_i // g) * M) % lcm
+        x = (x +(r_i - x) // g * p % (m_i // g) * M) % lcm
         M = lcm
     return x % M, M

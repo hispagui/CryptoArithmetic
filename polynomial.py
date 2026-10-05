@@ -1,7 +1,8 @@
 """
-terms should be a dictionnary {(2,1,0):3, (0,2,0):-5, (0,0,0):7}
-    encods 3*x^2*y - 5*y^2 + 7 
-if the order is not None (i.e. not in Z); a,b,c should be FieldElement(a,order), FieldElement(b,order), FieldElement(c,order)
+Loris De Vos
+Polynomial rings and polynomials; input should be in the form of a dict as follow,
+    {(2,1,0):3, (0,2,0):-5, (0,0,0):7} which encods 3*x^2*y - 5*y^2 + 7 
+    if order is not None (i.e. not in Z); a,b,c should be FieldElement(a,order), FieldElement(b,order), FieldElement(c,order)
 
 handles polynomials over Z (default) and over finite fiedls of order p^n            
 """
@@ -10,10 +11,10 @@ from collections import defaultdict
 from arithmetic import FieldElement
 
 def monomial_divides(a : int, b : int):
-
     return all(x <= y for x, y in zip(a, b))
+
 def monomial_div(a : int, b : int):
-    return tuple(y - x for x, y in zip(a, b))
+    return tuple(x - y for x, y in zip(a, b))
 
 
 
@@ -117,7 +118,7 @@ class Polynomial :
             raise ValueError("Polynomials belong to different rings.")
         result = self.ring()
         for m, c in self.terms.items():
-            result.terms[m] -= c
+            result.terms[m] += c
         for m, c in other.terms.items():
             result.terms[m] -= c
         result.clean()
@@ -253,101 +254,5 @@ class Polynomial :
         return result
  
 
-
-#---------------------------------------------------
-# Division polynomial
-#---------------------------------------------------
-
-def reduce_mod_curve(poly : "Polynomial", a : int, b:int) -> "Polynomial":
-    # each monomial c * x^ex * y^ey is rewritten as c * x^ex * (y^2)^k * y^r
-    # with y^2 = (x^3 + a*x + b), k = ey//2 and r = ey % 2 (recall standard equation for elliptic curves)
-    # making every monomial in y have exponent 0 or 1 (since y^r)
-    R = poly.ring
-    g = Polynomial(R, {(3, 0): 1, (1, 0): a, (0, 0): b})  # x^3 + a*x + b
-    result = R()
-    for (ex, ey), coeff in poly.terms.items(): # as in dictionnary
-        if poly.is_zero(coeff):
-            continue
-        k, r = divmod(ey, 2)
-        gk = g ** k  # (x^3+ax+b)^k ; g**0 is the identity polynomial "1"
-        term = Polynomial(R, {(ex, r): coeff}) * gk
-        result = result + term
-    result.clean()
-    return result
-
-def div_poly_schoof(n : int, a : int , b : int, order_field = None) -> "Polynomial":
-    # builds [psi_0, psi_1, ..., psi_n] for y^2 = x^3+ax+b over F_p (or Z)
-    # following https://en.wikipedia.org/wiki/Division_polynomials
-    
-    R = PolynomialRing("x", "y", order = order_field)
-    size = max(n +1, 5)
-    psi = [None] * size
-    psi[0]= Polynomial(R, {(0,0) : 0})  #0
-    psi[1] = Polynomial(R, {(0,0) : 1})  #1
-    psi[2] = Polynomial(R, {(0,1) : 2})  #2y
-    psi[3] = Polynomial(R, {(4,0):3, (2,0):(6*a), (1,0):(12*b), (0,0):(-a)})
-    psi[4] = Polynomial(R, {(0,1) : 4}) * Polynomial(R, {(6,0):1, (4,0):(5*a), (3,0):(20*b), (2,0):((-5)*a*a), (1,0):((-4)*a*b), (0,0): (-8*b*b - a*a*a)})  #4y*...
-
-    for m in range(5, n+1):
-        count += 1
-        if m % 2 == 1:
-            k = (m-1)//2
-            raw = (psi[k +2] * psi[k] * psi[k] * psi[k] - psi[k -1] * psi[k +1] * psi[k +1] * psi[k +1])
-            psi[m] = raw
-        else:
-            k = m // 2
-            raw = psi[k] * (psi[k+2] * psi[k-1] * psi[k-1] -psi[k-2] * psi[k+1] * psi[k+1])
-            dividend = reduce_mod_curve(raw, a, b)   # now y has exponents only 1
-            # so div = 2y * y*f(x) = 2y^2 * f(x), we can use the fact that y^2 = x^3+ax+b
-            diviseur = Polynomial({(3, 0): 2, (1, 0): 2 * a, (0, 0): 2 * b}) # 2*(x^3+a*x+b)
-            quot, rem = dividend / diviseur
-            rem.clean()
-            if rem.terms:
-                raise ArithmeticError(
-                    f"division_polynomials: psi_{m} computation had nonzero remainder "
-                    "(unexpected - check curve parameters / characteristic)"
-                )
-            psi[m] = Polynomial({(ex, 1) : c for (ex, ey), c in quot.terms.items()})
-            
-    return psi[:n+1]
-
-
-
-
-
-
-
-class ModPsiElement:
-    def __init__(self):
-        pass
-
-def is_prime(n : int) -> bool:
-    pass
-
-def next_prime(n : int) -> int:
-    pass
-
-
-
-
-
-def frobenius_trace_mod_l(prime : int, a : int, b : int): # from Schoof
-    h = div_poly_schoof(prime, a, b)
-    pi_l = None
-
-def CRT(residues : list, moduli : list) -> tuple:
-    pass
-
-def schoof_algo(a : int, b : int, p : int) -> int:
-    pass
-
-
-
-
-
-
-# thm : the frobenius endomorphism allows one to compute nb. of points on curve over F_q
-# over F_q, the frob. endo. satisfies phi^2 + t*phi + q = 0
-# where t = q + 1 - #E(F_q) 
 
 
