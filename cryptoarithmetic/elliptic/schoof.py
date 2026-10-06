@@ -1,16 +1,7 @@
-"""
-Loris De Vos
-everything that leeds to schoof's algo (computes number of points on elliptic curves y^2=x^3+ax+b), contains:
-    division polynomial 
-    trace of Frobnius endomorphism
-built entirely on top of polynomial.py (PolynomialRing, Polynomial) and arithmetic.py (FieldElement, crt),
-this file adds the coordinate ring S and a curve-point class over that ring S
-"""
-
 import math 
-from polynomial import PolynomialRing, Polynomial
-from arithmetic import FieldElement, crt
-from primes import prime_liste
+from ..algebra.polynomial import PolynomialRing, Polynomial
+from ..algebra.arithmetic import FieldElement, crt
+from ..algebra.primes import prime_liste
 
 
 
@@ -34,7 +25,7 @@ def reduce_curve(poly: "Polynomial", a: int, b: int) -> "Polynomial":
         k, r = divmod(ey, 2)
         term = Polynomial(ring, {(ex, r): coeff})
         if k:
-            term = term * (g**k)
+            term = term * g ** k
         result = result + term
     result.clean()
     return result
@@ -271,9 +262,7 @@ def _trace_mod_2(a: int, b: int, prime: int) -> int:
     xp = x_poly.modexp(prime, g)          # x^p mod g(x)
     diff = (xp - x_poly).mod(g)            # x^p - x
     gcd = diff.xgcd(g)[0]
-    gcd.clean()
-    degree = max((k[0] for k in gcd.terms), default=-1)
-    return 0 if degree >= 1 else 1
+    return 0 if gcd.degree() >= 1 else 1
 
 def frobenius_trace_mod_l(a: int, b: int, prime: int, l: int) -> int:
     # computes t mod l, where t is Frob trace of E: y^2 = x^3 + ax + b over F_p, for prime l != p
@@ -324,17 +313,18 @@ def frobenius_trace_mod_l(a: int, b: int, prime: int, l: int) -> int:
 
 
 
-_small_primes = prime_liste[0:30]
+_small_primes = prime_liste[:50]
 
 def schoof(a: int, b: int, p: int, verbose: bool = False) -> int:
     # computes #E(F_p) for E: y^2 = x^3 + ax + b, via Schoof's algorithm
-    if p <5:
+    if p < 5:
         raise ValueError("p must be a prime >= 5 (short Weierstrass form / division polynomials need it)")
-    
     if (4 * a**3 + 27 * b * b) % p == 0:
         raise ValueError("singular curve: 4a^3 + 27b^2 = 0 (mod p)")
  
-    # bound = 4 * math.isqrt(p) + 1     # need prod(l_i) > this, by Hasse's bound
+    # need M = prod(l_i) > 4*sqrt(p), i.e. M^2 > 16p, so that exactly one integer of
+    # [-2sqrt(p), 2sqrt(p)] has any given residue mod M  (isqrt(p)-based bounds are
+    # off by one for some p, e.g. p=59 and p=61 with t=-15)
     residues, moduli, prod = [], [], 1
     idx = 0
     while prod * prod <= 16 * p:
@@ -363,7 +353,7 @@ def schoof(a: int, b: int, p: int, verbose: bool = False) -> int:
     # Hasse bound: |t| <= 2*sqrt(p) and M > 4*sqrt(p)
 
     t = t_mod_M
-    if 2 * t > M:
+    if 2 * t > M:          # pick the representative in (-M/2, M/2]; Hasse puts t inside it
         t -= M
  
     return p + 1 - t

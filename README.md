@@ -1,383 +1,255 @@
 # CryptoArithmetic
- 
-Implementations, from scratch and in pure Python, of the arithmetic used in
-elliptic-curve cryptography and point counting: finite fields, elliptic curves,
-polynomials, Schoof's point-counting algorithm, the SHA-2 hash functions and ECDSA.
- 
-This README explains **how to call the code**. The mathematics (group law,
-Schoof's algorithm, SHA-2, ECDSA, correctness checks) is in
-[`THEORY.md`](THEORY.md).
- 
-## Contents
- 
-1. [Files and requirements](#1-files-and-requirements)
-2. [Quick start](#2-quick-start)
-3. [`arithmetic.py`](#3-arithmeticpy)
-4. [`polynomial.py`](#4-polynomialpy)
-5. [`schoof.py`](#5-schoofpy)
-6. [`SHA2.py`](#6-sha2py)
-7. [`ECDSA.py`](#7-ecdsapy)
-8. [End to end: from a curve to a signature](#8-end-to-end-from-a-curve-to-a-signature)
-9. [Troubleshooting](#9-troubleshooting)
----
- 
-## 1. Files and requirements
- 
-| File | Provides | Imports |
-|---|---|---|
-| `arithmetic.py` | `FieldElement`, `Point`, `scalar_mul`, `extended_gcd`, `crt` | – |
-| `polynomial.py` | `PolynomialRing`, `Polynomial` | `arithmetic` |
-| `schoof.py` | `schoof`, `frobenius_trace_mod_l`, division polynomials | `polynomial`, `arithmetic`, `primes` |
-| `primes.py` | `prime_liste` (a list of primes) | – |
-| `SHA2.py` | `SHA` (SHA-224/256/384/512) | – |
-| `ECDSA.py` | `ECDSA` (keys, sign, verify, ECDH) | `arithmetic`, `SHA2` |
 
-  
+Cryptography written from scratch in pure Python, for study: finite fields, elliptic
+curves, polynomials, Schoof's point counting, SHA-2 / SHA-3, HMAC / KMAC / CMAC, AES, DES
+and Triple-DES with CBC / CTR / GCM, RSA and ECDSA.
+
+This README says **how to call things**. 
+Educational code: not constant-time, not audited, slow. Do not protect real secrets with it.
+
+## Contents
+
+1. [Layout and installation](#1-layout-and-installation)
+2. [Quick start](#2-quick-start)
+3. [`algebra/arithmetic.py`](#3-algebraarithmeticpy)
+4. [`algebra/polynomial.py`](#4-algebrapolynomialpy)
+5. [`elliptic/schoof.py`](#5-ellipticschoofpy)
+6. [Hash functions](#6-hash-functions)
+7. [Message authentication codes](#7-message-authentication-codes)
+8. [Symmetric encryption](#8-symmetric-encryption)
+9. [Public-key cryptography](#9-public-key-cryptography)
+10. [Common errors](#10-common-errors)
+
 ---
- 
+
+## 1. Layout and installation
+
+One protocol, or one family, per file:
+
+```text
+cryptoarithmetic/
+├── algebra/     arithmetic.py  polynomial.py  primality.py  primes.py
+├── elliptic/    schoof.py
+├── hashing/     sha2.py  sha3.py
+├── mac/         hmac.py  kmac.py  cmac.py
+├── symmetric/   aes.py  des.py  padding.py  cbc.py  ctr.py  gcm.py
+├── asymmetric/  rsa.py  ecdsa.py
+└── utils.py
+```
+
+Python 3.8+, standard library only. Run from the folder containing `cryptoarithmetic/`
+(or `pip install -e .`). Each subpackage re-exports its classes, so both
+`from cryptoarithmetic.symmetric import AES` and `from cryptoarithmetic.symmetric.aes import AES` work.
+
+**Which MAC goes with which primitive**
+
+- SHA-2: HMAC. SHA-3: HMAC, or its native KMAC.
+- AES, DES, Triple-DES: CMAC (CBC-MAC only for fixed-length messages).
+- CBC mode: CMAC, or encrypt-then-HMAC. CTR mode: GCM, whose authentication-only form is GMAC.
+- RSA, ECDSA: no MAC (a MAC needs a secret shared by both sides); their counterpart is the signature.
+
+---
+
 ## 2. Quick start
- 
+
 ```python
-from arithmetic import FieldElement, Point, scalar_mul
-from schoof import schoof
-from SHA2 import SHA
- 
+from cryptoarithmetic.algebra import FieldElement, Point, scalar_mul
+from cryptoarithmetic.elliptic import schoof
+from cryptoarithmetic.hashing import SHA, SHA3
+from cryptoarithmetic.mac import HMAC
+from cryptoarithmetic.symmetric import AES, GCM
+from cryptoarithmetic.asymmetric import generate_keypair, ECDSA
+
 # 1. arithmetic in F_17
 x, y = FieldElement(6, 17), FieldElement(3, 17)
 print(x + y, x * y, x / y)        # FieldElement_17(9) FieldElement_17(1) FieldElement_17(2)
- 
+
 # 2. a point on y^2 = x^3 + 2x + 3 over F_97, and its multiples
 p = 97
 a, b = FieldElement(2, p), FieldElement(3, p)
 P = Point(FieldElement(3, p), FieldElement(6, p), a, b)
 print(P + P, scalar_mul(5, P))    # Point(80,10) Point(infinity)
- 
+
 # 3. how many points does that curve have? (Schoof's algorithm)
 print(schoof(2, 3, 97))           # 100
- 
-# 4. a hash
+
+# 4. hashes and a MAC
 print(SHA("abc").hash())          # ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+print(SHA3("abc").hash())         # 3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532
+print(HMAC(b"Jefe", "sha256").mac(b"what do ya want for nothing?").hex())
+# 5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843
+
+# 5. authenticated encryption with AES-GCM
+ciphertext, tag = GCM(AES(bytes(range(16)))).encrypt(b"secret", bytes(12), b"header")
+print(ciphertext.hex(), tag.hex())      # 3ab3e421fcef 5eecaa10c9d47dfdd06efce31967e254
+
+# 6. RSA
+public, private = generate_keypair(1024)
+print(private.decrypt(public.encrypt(b"hello", "oaep"), "oaep"))      # b'hello'
+
+# 7. ECDSA on a small curve; its 2053 points (a prime) were counted with schoof(1290, 1258, 2003)
+q = 2003
+G = Point(FieldElement(1, q), FieldElement(584, q), FieldElement(1290, q), FieldElement(1258, q))
+ecdsa = ECDSA(G, 2053)
+d, Q = ecdsa.generate_key_pair()
+signature = ecdsa.sign(b"hello", d)
+print(ecdsa.verify(b"hello", signature, Q), ecdsa.verify(b"hellp", signature, Q))   # True False
 ```
- 
+
 ---
- 
-## 3. `arithmetic.py`
- 
-### 3.1 `FieldElement` — an element of F_p
- 
-```text
-FieldElement(num: int, prime: int)
-```
- 
-`num` is reduced modulo `prime` on construction. `prime` **must be prime** (not
-checked).
- 
-Expressions/operations supported : addition, substraction, multiplication, division, scalar mulltiplication, exponentiation, additive inverse, multiplicative inverse and equality modulo a prime `p`
 
- 
-**Things to know**
- 
-- `x * 2` and `x + 1` raise `AttributeError`: write `2 * x` or `x + FieldElement(1, p)`.
-- `x == 3` raises `AttributeError`: compare two `FieldElement`s.
-- `FieldElement(0, p).inverse()` silently returns `0`.
-- `FieldElement(0, 17) ** 16` returns `1` instead of `0` (see [`THEORY.md` §2](THEORY.md#2-finite-fields)).
+## 3. `algebra/arithmetic.py`
 
-### 3.2 `Point` — a point on `y² = x³ + ax + b (mod p)`
- 
-```text
-Point(x: FieldElement, y: FieldElement, a: FieldElement, b: FieldElement)
-Point(None, None, a, b)          # the point at infinity (group identity)
-```
- 
-The constructor raises `ValueError` if `(x, y)` is not on the curve. It does not
-check that the curve is non-singular.
- 
-Group operations supported : addition `P+Q`, inverse `-P`, point at infinity check, equality and scalar multiplication.
+**`FieldElement(num, prime)`** — an element of F_p, `prime` must be prime.
+Operations supported: addition, subtraction, multiplication, division, multiplication by an
+integer (`3 * x`), exponentiation, additive inverse, multiplicative inverse (`.inverse()`)
+and equality, modulo a prime `p`. Attributes `.num`, `.prime`.
 
-### 3.3 `extended_gcd` and `crt`
- 
-```text
-extended_gcd(a: int, b: int) -> (g, s, t)      # s*a + t*b == g == gcd(a, b)
-crt(residues: list, moduli: list) -> (x, M)    # x ≡ residues[i] (mod moduli[i]) for all i
-```
- 
-`crt` returns the smallest non-negative solution `x` and the modulus `M` (the
-lcm of the moduli, i.e. their product when they are pairwise coprime). It raises
-`ValueError` if the lists differ in length, are empty, or the system has no
-solution.
- 
+**`Point(x, y, a, b)`** — a point on `y² = x³ + ax + b (mod p)` with `FieldElement`
+coordinates; `Point(None, None, a, b)` is the point at infinity. A point that is not on the
+curve raises `ValueError`.
+Operations supported: addition (all cases: identity, opposite points, doubling), additive
+inverse (`.inverse()`), equality and `.is_infinity()`.
+
+**`scalar_mul(k, point)`** — `k·P` by double-and-add; `k` may be zero or negative.
+
+**`extended_gcd(a, b)`** returns `(g, s, t)` with `s·a + t·b = g = gcd(a, b)`.
+**`crt(residues, moduli)`** returns `(x, M)`, the solution of the congruences modulo `M`.
+
 ---
- 
-## 4. `polynomial.py`
- 
-### 4.1 Rings and polynomials
- 
-```text
-PolynomialRing(*variables: str, order: int | None = None)
-ring(terms: dict) -> Polynomial        # ring() or ring({}) is the zero polynomial
-```
- 
-- `order=None`: integer coefficients (the ring `Z[x, y, ...]`).
-- `order=p`: coefficients are coerced to `FieldElement(., p)` (the ring `F_p[x, y, ...]`).
-- `terms` maps an **exponent tuple** (one entry per variable) to a coefficient: in
-  `PolynomialRing("x", "y")`, `{(2, 1): 3}` is `3x²y`.
-- Two polynomials can only be combined if they come from the **same
-  `PolynomialRing` object**. Two separate calls to `PolynomialRing("x", order=97)`
-  give incompatible rings.
-- Over `F_p`, coefficients are displayed as residues in `[0, p)` (so `-1` shows as
-`96` over `F_97`).
- 
-### 4.2 Operators and methods
- 
-Operations and expression supported: 
-- addition `+`, substraction `-`, multiplication `*`, quotient with remainder `/` of polynomials, raising power `**`, equality `==`, scalling (scalar multiplication) `.scale(c)`, zero coefficient check `.is_zero(c)`, zero polynomial check `.is_zero_poly()` and univariate check `.is_univariate()`.
 
+## 4. `algebra/polynomial.py`
 
-These need **univariate** polynomials over a field (`ValueError` otherwise; both
-operands from the same ring):
-- degree `.degree()`, remainder of division by m `.mod(m)`, gcd `.xgcd(g)`, exponent modulo m `.modexp(e, m)` and inverse modulo m `.inverse_mod(m)` (the last operations require the polynom to be univariate.)
+**`PolynomialRing(*variables, order=None)`** — polynomials with integer coefficients, or
+with coefficients in F_p when `order=p`. `ring({(2, 1): 3})` builds `3x²y` in
+`PolynomialRing("x", "y")` (keys are exponent tuples). Polynomials combine only if they come
+from the same ring object.
 
-**Things to know**
- 
-- There is no `Polynomial + int`; use `scale`, or build a constant polynomial with `ring({(0,)*n: c})`.
-- The exponent tuples must have exactly one entry per variable.
-- `mod`, `xgcd`, `modexp` and `inverse_mod` are only meaningful over a field (`order=p`).
+Operations supported: addition, subtraction, multiplication, exponentiation by a
+non-negative integer, division with remainder (`f / g` returns `(quotient, remainder)`),
+equality, scaling by a constant (`.scale(c)`) and `.is_zero_poly()`.
+
+For univariate polynomials over F_p: `.degree()`, `.mod(m)`, `.xgcd(g)` (extended Euclid,
+returns `(gcd, u, v)`), `.modexp(e, m)` (`f**e mod m`) and `.inverse_mod(m)` (`None` if not
+invertible).
+
 ---
- 
-## 5. `schoof.py`
- 
-Counts the points of `y² = x³ + ax + b` over `F_p`. Requirements: `p` an odd
-prime with `p >= 5` (primality is **not** checked), a non-singular curve, and
-`primes.py` (see [§1](#1-files-and-requirements)).
- 
-### 5.1 `schoof` — the point count
- 
-```text
-schoof(a: int, b: int, p: int, verbose: bool = False) -> int
-```
- 
-Returns `#E(F_p)`, the number of points **including the point at infinity**.
-`a` and `b` may be negative or larger than `p` (they are reduced mod `p`).
- 
-| Raises | When |
-|---|---|
-| `ValueError` | `p < 5`, or the curve is singular (`4a³ + 27b² ≡ 0 mod p`) |
-| `RuntimeError` | the 30 primes of `prime_liste` are not enough (not a realistic case) |
- 
-`verbose=True` prints, for each small prime `ℓ` tried, either `t mod ℓ` or that
-`ℓ` was skipped.
- 
-Everything runs on the generic `Polynomial` class, so this is a teaching
-implementation: from a fraction of a second for `p ≈ 100` to some tens of seconds
-for `p ≈ 10⁵` (timings in [`THEORY.md` §5.12](THEORY.md#512-complexity-and-limits)).
- 
-### 5.2 `frobenius_trace_mod_l` — one residue
- 
-```text
-frobenius_trace_mod_l(a: int, b: int, prime: int, l: int) -> int
-```
- 
-Returns `t mod l` (in `[0, l)`) for a prime `l != prime`; `t` is the trace of
-Frobenius, `t = p + 1 - #E(F_p)`. It raises `ZeroDivisionError` or `RuntimeError`
-for a degenerate `(curve, l)` pair, which `schoof` catches.
- 
- 
-### 5.3 Division polynomials
- 
-```text
-div_poly_schoof(n: int, a: int, b: int, order_field: int | None = None) -> Polynomial
-division_poly_AB(l: int, a: int, b: int, prime: int) -> (A, B)
-division_poly_odd(l: int, a: int, b: int, prime: int) -> Polynomial
-curve_poly(a: int, b: int, ring: PolynomialRing) -> Polynomial
-reduce_curve(poly: Polynomial, a: int, b: int) -> Polynomial
-```
- 
-- `div_poly_schoof(n, a, b)`: the `n`-th division polynomial `ψₙ(x, y)` in
-  `PolynomialRing("x", "y")`, over `Z` (`order_field=None`) or `F_p`
-  (`order_field=p`), in the form `A(x) + B(x)·y`.
-- `division_poly_AB(l, a, b, p)`: `(A, B)` as univariate polynomials over `F_p`
-  with `ψₗ = A + B·y`. For odd `l`, `B = 0`; for even `l`, `A = 0`.
-- `division_poly_odd(l, a, b, p)`: `A` for odd `l` (`ValueError` for even `l`);
-  its degree is `(l² - 1) / 2`.
-- `curve_poly(a, b, ring)`: `x³ + ax + b` in any ring whose first variable is `x`.
-- `reduce_curve(poly, a, b)`: rewrites a polynomial in `x, y` using
-  `y² = x³ + ax + b` so that the `y`-degree is at most 1.
 
- 
+## 5. `elliptic/schoof.py`
+
+**`schoof(a, b, p, verbose=False)`** — the number of points (including infinity) of
+`y² = x³ + ax + b` over F_p, by Schoof's algorithm. `p` must be an odd prime `≥ 5` and the
+curve non-singular, otherwise `ValueError`. `verbose=True` prints each small prime used or
+skipped. It is a teaching implementation: from a fraction of a second at `p ≈ 100` to tens
+of seconds at `p ≈ 10⁵`.
+
+**`frobenius_trace_mod_l(a, b, p, l)`** — `t mod l`, where `t = p + 1 − #E(F_p)` is the trace
+of Frobenius. A prime `l` that cannot be used for this curve is skipped by `schoof`.
+
+**Division polynomials:** `div_poly_schoof(n, a, b, order_field=None)` gives `ψₙ(x, y)`;
+`division_poly_AB(l, a, b, p)` returns `(A, B)` with `ψₗ = A(x) + B(x)·y`;
+`division_poly_odd(l, a, b, p)` returns the polynomial in `x` for odd `l`;
+`curve_poly(a, b, ring)` builds `x³ + ax + b`; `reduce_curve(poly, a, b)` applies `y² = x³ + ax + b`.
+
 ---
- 
-## 6. `SHA2.py`
- 
-```text
-SHA(plaintext: str | bytes, variant: str = "sha256")
-SHA.hash() -> str          # lowercase hexadecimal digest
-```
- 
-| `variant` | digest size | hex length |
-|---|---|---|
-| `"sha224"` | 224 bits | 56 |
-| `"sha256"` | 256 bits | 64 |
-| `"sha384"` | 384 bits | 96 |
-| `"sha512"` | 512 bits | 128 |
- 
-A `str` is encoded as UTF-8 first; `bytes` are hashed as they are.
- 
-```python
-from SHA2 import SHA
- 
-print(SHA("abc").hash())
-# ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
-print(SHA("abc", "sha224").hash())
-# 23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7
-print(SHA(b"abc", "sha512").hash()[:32])        # ddaf35a193617abacc417349ae204131
-print(SHA("").hash())
-# e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-```
- 
-**Things to know**
- 
-- An unknown variant raises `KeyError` (`SHA("x", "md5")`).
-- Only `str` and `bytes` are accepted; `bytearray` or `int` raise `AttributeError`
-  (use `bytes(data)`).
-- The whole message is hashed at once (no `update()`).
-- `repr(SHA("abc"))` prints a stray quote: `("sha256",616263")`.
+
+## 6. Hash functions
+
+All take `bytes` or `str` (UTF-8). `.hash()` returns a hexadecimal string.
+
+**`SHA(plaintext, variant="sha256")`** (`hashing/sha2.py`). Variants: `sha224`, `sha256`,
+`sha384`, `sha512` (digests of 224, 256, 384, 512 bits).
+
+**`SHA3(plaintext, variant="sha3_256")`** (`hashing/sha3.py`), also `.digest()` for bytes.
+Variants: `sha3_224`, `sha3_256`, `sha3_384`, `sha3_512` (28, 32, 48, 64 bytes), and
+`keccak_224`, `keccak_256`, `keccak_384`, `keccak_512` (the original Keccak padding).
+
+**`SHAKE(plaintext, variant="shake128")`** — extendable output: `.hash(out_len=32)`,
+`.digest(out_len=32)`. Variants: `shake128`, `shake256`.
+
+**`CSHAKE(plaintext, variant="cshake128", function_name=b"", customization=b"")`** —
+customizable SHAKE, same methods. Variants: `cshake128`, `cshake256`.
+
+**`get_hash(name)`** — a uniform description of a fixed-output hash (`.digest(data)`,
+`.digest_size`, `.block_size`). `HASH_NAMES` lists the names accepted by HMAC and RSA:
+`sha224`, `sha256`, `sha384`, `sha512`, `sha3_224`, `sha3_256`, `sha3_384`, `sha3_512`.
+
 ---
- 
-## 7. `ECDSA.py`
- 
-```text
-ECDSA(point: Point, n: int)
-```
- 
-- `point`: the generator `G` (a finite `Point`).
-- `n`: the order of `G`. It **must be prime** and be the true order of `G`;
-  neither is checked.
-One `ECDSA` object holds the domain parameters (curve, `G`, `n`); both parties
-build the same one and pass their keys to the methods.
- 
-Methods:
-- `generate_key_pair()`
-- `sign(message, private_key)`, hashed with SHA-256
-- `verify(message, signature, public_key)`
-- `ecdh_key_exchange(private_key, public_key)`, the shared point `private_key · public_key`
- 
-`repr(ecdsa)` shows the curve, the generator and `n`.
- 
-### 7.1 A complete example on a small curve
- 
-The curve `y² = x³ + 1290x + 1258` over `F_2003` has 2053 points (a prime, found
-with `schoof(1290, 1258, 2003)`), so every point other than the identity
-generates the whole group and `n = 2053`.
- 
-```python
-import random
-from arithmetic import FieldElement, Point
-from ECDSA import ECDSA
- 
-p, a, b, n = 2003, 1290, 1258, 2053
-G = Point(FieldElement(1, p), FieldElement(584, p), FieldElement(a, p), FieldElement(b, p))
- 
-ec = ECDSA(G, n)
-print(ec)       # (Curve, Gen.point, Grp.order) = (y^2=x^3+1290*x+1258, Point(1,584), 2053)
- 
-random.seed(1)                           # only to make this example reproducible
-d, Q = ec.generate_key_pair()
-print(d, Q)                              # 551 Point(1723,1944)
- 
-sig = ec.sign(b"hello", d)
-print(sig)                               # (1303, 1002)
- 
-print(ec.verify(b"hello", sig, Q))                       # True
-print(ec.verify(b"hellp", sig, Q))                       # False   other message
-print(ec.verify(b"hello", (sig[0], sig[1] % n + 1), Q))  # False   modified s
-d2, Q2 = ec.generate_key_pair()
-print(ec.verify(b"hello", sig, Q2))                      # False   wrong public key
-print(ec.verify(b"hello", (0, sig[1]), Q))               # False   r out of range
- 
-# ECDH: both sides get the same point
-da, Qa = ec.generate_key_pair()
-db, Qb = ec.generate_key_pair()
-print(ec.ecdh_key_exchange(da, Qb) == ec.ecdh_key_exchange(db, Qa))   # True
-```
- 
-### 7.2 Building your own parameters with `schoof`
- 
-`schoof` gives `N = #E(F_p)`. Take `n` = a large prime factor of `N` and a
-generator `G = (N/n)·P` for a random point `P` (why this works: [`THEORY.md`](THEORY.md#78-choosing-n-and-g-with-schoof)).
- 
-```python
-import random
-from arithmetic import FieldElement, Point, scalar_mul
-from schoof import schoof
- 
-def random_point(a, b, p):
-    """Toy sizes only: the square root is found by brute force."""
-    A, B = FieldElement(a, p), FieldElement(b, p)
-    while True:
-        x = random.randrange(p)
-        r = (x**3 + a*x + b) % p
-        if r and pow(r, (p - 1) // 2, p) == 1:          # r is a non-zero square
-            y = next(y for y in range(p) if y * y % p == r)
-            return Point(FieldElement(x, p), FieldElement(y, p), A, B)
- 
-def prime_factors(m):
-    f, d = [], 2
-    while d * d <= m:
-        while m % d == 0:
-            f.append(d)
-            m //= d
-        d += 1
-    if m > 1:
-        f.append(m)
-    return f
- 
-def find_generator(a, b, p):
-    """Returns (G, n): n = largest prime factor of #E(F_p), G a point of order n."""
-    N = schoof(a, b, p)
-    n = max(prime_factors(N))
-    h = N // n                                           # cofactor
-    while True:
-        G = scalar_mul(h, random_point(a, b, p))
-        if not G.is_infinity():
-            return G, n
- 
-random.seed(0)
-G, n = find_generator(1290, 1258, 2003)
-print(n, scalar_mul(n, G).is_infinity())     # 2053 True
- 
-G, n = find_generator(2, 3, 97)              # N = 100 = 2^2 * 5^2  ->  n = 5
-print(n, scalar_mul(n, G).is_infinity())     # 5 True
-```
- 
-### 7.3 Warning
- 
-This is educational code. In particular:
- 
-- **Randomness.** `generate_key_pair` and `sign` use `random.randint`, which is
-  predictable, and a predictable or repeated nonce reveals the private key.
- 
-## 8. End to end: from a curve to a signature
- 
-```python
-import random
-from arithmetic import FieldElement, Point, scalar_mul
-from schoof import schoof
-from ECDSA import ECDSA
- 
-# 1. choose a curve and count its points
-p, a, b = 2003, 1290, 1258
-N = schoof(a, b, p)                              # 2053
-assert all(N % q for q in range(2, int(N**0.5) + 1)), "N is prime, so n = N"
- 
-# 2. a generator (any non-identity point, since the group has prime order)
-G = Point(FieldElement(1, p), FieldElement(584, p), FieldElement(a, p), FieldElement(b, p))
-assert scalar_mul(N, G).is_infinity()
- 
-# 3. sign and verify
-ec = ECDSA(G, N)
-d, Q = ec.generate_key_pair()
-message = b"pay 10 euros to Bob"
-signature = ec.sign(message, d)
-print(ec.verify(message, signature, Q))          # True
-print(ec.verify(b"pay 99 euros to Bob", signature, Q))   # False
-```
+
+## 7. Message authentication codes
+
+Every MAC has `.mac(message)` (bytes) and `.verify(message, tag)` (constant-time).
+
+**`HMAC(key, hash="sha256")`** (`mac/hmac.py`) — any hash name above, any key length.
+
+**`KMAC(key, variant="kmac128", out_len=None, customization=b"", xof=False)`** (`mac/kmac.py`).
+Variants: `kmac128` (default output 32 bytes), `kmac256` (64 bytes); `out_len` is in bytes;
+`xof=True` gives KMACXOF.
+
+**`CMAC(cipher)`** (`mac/cmac.py`) — `cipher` is an `AES`, `DES` or `TripleDES` object;
+`.mac(message, tag_len=None)` accepts any message length and can truncate the tag.
+**`CBCMAC(cipher)`** — the raw CBC-MAC: non-empty messages whose length is a multiple of the
+block size, all of the same length.
+
+GMAC is in [§8](#8-symmetric-encryption).
+
+---
+
+## 8. Symmetric encryption
+
+**Block ciphers** (`symmetric/aes.py`, `des.py`): `AES(key)` with a 16-, 24- or 32-byte key;
+`DES(key)` with 8 bytes; `TripleDES(key)` with 16 or 24 bytes. Each has `.block_size`,
+`.encrypt_block(block)` and `.decrypt_block(block)` on exactly one block.
+
+**`pkcs7_pad(data, block_size)`, `pkcs7_unpad(data, block_size)`** (`symmetric/padding.py`).
+
+**`CBC(cipher)`** (`symmetric/cbc.py`): `.encrypt(plaintext, iv, padding=True)` and
+`.decrypt(ciphertext, iv, padding=True)`; `iv` is one random block.
+
+**`CTR(cipher, counter_bits=None)`** (`symmetric/ctr.py`): `.crypt(data, counter_block)`
+(also `.encrypt` / `.decrypt`, which are the same operation); `counter_block` is one full block
+whose low `counter_bits` bits are the counter.
+
+**`GCM(cipher)`** (`symmetric/gcm.py`, AES only):
+`.encrypt(plaintext, iv, aad=b"", tag_len=16)` returns `(ciphertext, tag)`;
+`.decrypt(ciphertext, iv, tag, aad=b"")` returns the plaintext or raises
+`ValueError("authentication failed")`; `.gmac(iv, aad, tag_len=16)` authenticates data
+without encrypting.
+
+Use a fresh random IV or nonce for every message (`os.urandom`). CBC and CTR do not detect
+tampering: add a MAC, or use GCM.
+
+---
+
+## 9. Public-key cryptography
+
+**RSA** (`asymmetric/rsa.py`). `generate_keypair(bits=2048, e=65537)` returns
+`(public, private)`; `RSAPrivateKey(p, q, e)` rebuilds a key from two primes.
+
+- `public.encrypt(message, scheme="oaep", hash="sha256", label=b"")` and
+  `private.decrypt(ciphertext, scheme="oaep", hash="sha256", label=b"")`; schemes `oaep`
+  (recommended) or `pkcs1v15`. Every decryption failure raises the same `ValueError("decryption error")`.
+- `private.sign(message, scheme="pss", hash="sha256", salt_len=None)` and
+  `public.verify(message, signature, scheme="pss", hash="sha256", salt_len=None)` (returns a
+  `bool`); schemes `pss` (recommended) or `pkcs1v15`.
+- `hash` is any name in `HASH_NAMES`. OAEP carries at most `key_bytes − 2·hash_size − 2`
+  bytes: to encrypt more, encrypt a random AES key with RSA and the data with AES-GCM.
+- `public.raw_encrypt(m)` / `private.raw_decrypt(c)`: the bare operation on integers (study only).
+
+**ECDSA** (`asymmetric/ecdsa.py`). `ECDSA(point, n)` where `point` is a generator `G` of the
+curve and `n` is its **prime** order. Methods: `.generate_key_pair()` returns `(d, Q)`;
+`.sign(message, d)` returns `(r, s)` (SHA-256); `.verify(message, (r, s), Q)` returns a
+`bool`; `.ecdh_key_exchange(d, Q)` returns the shared point. Use `schoof` to count the
+points and find a suitable `n`.
+This class draws its randomness from Python's `random`: for study only.
+
+---
+
+## 10. Common errors
+
+- `ModuleNotFoundError: cryptoarithmetic`: run from the project folder, or `pip install -e .`.
+- `AttributeError ... 'prime'`: write `3 * x`, not `x * 3`, for a `FieldElement`.
+- `ValueError: Polynomials belong to different rings`: build the `PolynomialRing` once and reuse it.
+- `ValueError: invalid padding` / `authentication failed` / `decryption error`: wrong key, IV or, nonce, or modified data (the exact reason is not revealed on purpose).
+- `ValueError: key too short for this hash`: RSA-PSS with SHA-512 needs a key larger than 1024 bits.
+- `schoof` slow: run with `verbose=True`; a skipped small prime forces a larger, costlier one.

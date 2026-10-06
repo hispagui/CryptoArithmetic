@@ -1,8 +1,7 @@
 """
 Loris De Vos
 Finite Field arithmetic
-Groups derived from elliptic curves
-
+Groups derived from elliptic curve
 """
 
 
@@ -43,13 +42,13 @@ class FieldElement:
         return FieldElement((self.num * const) % self.prime, self.prime)
 
     def __pow__(self, exp : int) -> "FieldElement": # self**exp
-        # this is basically the pow(a,b,modulo) function in python3 : Exponentiation by squarring
+        # this is basically the pow(a,b,modulo) function in python3 : Exponentiation by squaring
         # fast computation in O(log exp)    fermat little theorem : a^p-1 ≡ 1 (mod p)
         # we can reduce a^n ≡ a^{n mod p-1} (mod p)
         n = exp % (self.prime - 1)
         result = 1
         a = self.num
-        while n > 0: # exponentiation by squarring
+        while n > 0: # exponentiation by squaring
             if n % 2 == 1:
                 result = (result * a) % self.prime
             a = (a*a) % self.prime

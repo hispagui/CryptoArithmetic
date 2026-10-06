@@ -4,5 +4,4 @@ __pycache__/
 .venv/
 venv/
 
-test_file.py
-test_schoof.py
+tests/

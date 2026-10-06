@@ -1,14 +1,14 @@
 """
-Loris De Vos
-Polynomial rings and polynomials; input should be in the form of a dict as follow,
-    {(2,1,0):3, (0,2,0):-5, (0,0,0):7} which encods 3*x^2*y - 5*y^2 + 7 
+Polynomial ring algebra through class
+    polynomial objects encoded through dictionnary,
+    ex: {(2,1,0):3, (0,2,0):-5, (0,0,0):7} encods 3*x^2*y - 5*y^2 + 7 
     if order is not None (i.e. not in Z); a,b,c should be FieldElement(a,order), FieldElement(b,order), FieldElement(c,order)
 
 handles polynomials over Z (default) and over finite fiedls of order p^n            
 """
 
 from collections import defaultdict
-from arithmetic import FieldElement
+from .arithmetic import FieldElement
 
 def monomial_divides(a : int, b : int):
     return all(x <= y for x, y in zip(a, b))
@@ -101,6 +101,7 @@ class Polynomial :
             )
 
     # dunder methods
+
     def __add__(self, other : "Polynomial") -> "Polynomial":
         if self.ring is not other.ring:
             raise ValueError("Polynomials belong to different rings.")
@@ -195,12 +196,6 @@ class Polynomial :
     
     
     # the following methods only work for univariate polynomials
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, Polynomial) or self.ring is not other.ring:
-            return NotImplemented
-        self.clean(); other.clean()
-        return dict(self.terms) == dict(other.terms)
-        
     def degree(self) -> int:
         self._require_univariate("degree")
         if not self.terms:
@@ -216,11 +211,6 @@ class Polynomial :
         r.clean()
         return r
 
-    def is_zero_poly(self) -> bool:
-        # whole-polynomial zero test (is_zero(coeff) tests a single coefficient)
-        self.clean()
-        return not self.terms
-
     def xgcd(self, other: "Polynomial") -> list:
         # Extended Euclidean algorithm, returns (gcd, u, v) with
         # u*self + v*other == gcd.
@@ -234,12 +224,29 @@ class Polynomial :
         s0, s1 = one, zero
         t0, t1 = zero, one
  
-        while not r1.is_zero_poly():
+        def is_zero_p(poly):
+            poly.clean()
+            return not poly.terms
+ 
+        while not is_zero_p(r1):
             q, r = r0 / r1
             r0, r1 = r1, r
             s0, s1 = s1, s0 - q * s1
             t0, t1 = t1, t0 - q * t1
         return r0, s0, t0
+
+
+
+    def is_zero_poly(self) -> bool:
+        # whole-polynomial zero test (is_zero(coeff) tests a single coefficient)
+        self.clean()
+        return not self.terms
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Polynomial) or self.ring is not other.ring:
+            return NotImplemented
+        self.clean(); other.clean()
+        return dict(self.terms) == dict(other.terms)
 
     def scale(self, c) -> "Polynomial":
         # self * c for a scalar c (int or FieldElement)
@@ -253,7 +260,6 @@ class Polynomial :
         if len(g.terms) != 1 or const not in g.terms:
             return None
         return u.scale(g.terms[const].inverse()).mod(modpoly)
-
 
     def modexp(self, exp: int, modpoly: "Polynomial") -> "Polynomial":
         # (self**exp mod modpoly), via square-and-multiply, O(log exp)
@@ -273,5 +279,14 @@ class Polynomial :
         return result
  
 
+
+
+
+
+
+
+# thm : the frobenius endomorphism allows one to compute nb. of points on curve over F_q
+# over F_q, the frob. endo. satisfies phi^2 + t*phi + q = 0
+# where t = q + 1 - #E(F_q) 
 
 

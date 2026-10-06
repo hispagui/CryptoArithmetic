@@ -1,6 +1,22 @@
+"""
+prime_liste : the primes below 10 000, in increasing order.
+(sieve Eratosthenes)
 
-# some 10000 prime numbers
+`elliptic/schoof.py` uses the first 30 of them. Replace this file by your own list
+if you prefer; the only requirement is a module-level list called `prime_liste`.
+"""
 
+def _sieve(n: int) -> list:
+    flags = bytearray([1]) * (n + 1)
+    flags[0:2] = b"\x00\x00"
+    for i in range(2, int(n ** 0.5) + 1):
+        if flags[i]:
+            flags[i * i::i] = bytearray(len(flags[i * i::i]))
+    return [i for i, f in enumerate(flags) if f]
+
+
+# prime_liste = _sieve(10_000)
+# but for speed:
 prime_liste = [ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
 73, 79, 83, 89, 97, 101, 103, 107, 109, 113,
@@ -1001,3 +1017,4 @@ prime_liste = [ 2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
 104417, 104459, 104471, 104473, 104479, 104491, 104513, 104527, 104537, 104543,
 104549, 104551, 104561, 104579, 104593, 104597, 104623, 104639, 104651, 104659,
 104677, 104681, 104683, 104693, 104701, 104707, 104711, 104717, 104723, 104729 ]
+

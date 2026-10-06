@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cryptoarithmetic"
+dynamic = ["version"]                      # read from cryptoarithmetic/__init__.py (__version__)
+description = "Cryptography from scratch in pure Python, for study: finite fields, elliptic curves, Schoof, SHA-2/3, HMAC/KMAC/CMAC, AES, DES, CBC/CTR/GCM, RSA, ECDSA"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Loris De Vos" }]
+keywords = ["cryptography", "education", "elliptic-curves", "schoof", "aes", "rsa", "sha2", "sha3", "ecdsa"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Education",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = []
+
+# Fill these in once the repository exists, then uncomment:
+# [project.urls]
+# Homepage = "https://github.com/<you>/CryptoArithmetic"
+# Documentation = "https://github.com/<you>/CryptoArithmetic/blob/main/THEORY.md"
+# Issues = "https://github.com/<you>/CryptoArithmetic/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "cryptoarithmetic.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["cryptoarithmetic*"]
