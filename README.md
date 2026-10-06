@@ -38,7 +38,7 @@ cryptoarithmetic/
 ```
 
 Python 3.8+, standard library only. Run from the folder containing `cryptoarithmetic/`
-(or `pip install -e .`). Each subpackage re-exports its classes, so both
+(or `pip install -e .`), see https://pypi.org/project/cryptoarithmetic/0.1.0/. Each subpackage re-exports its classes, so both
 `from cryptoarithmetic.symmetric import AES` and `from cryptoarithmetic.symmetric.aes import AES` work.
 
 **Which MAC goes with which primitive**
