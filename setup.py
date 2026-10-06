@@ -26,12 +26,6 @@ setup(
         "Topic :: Education",
         "Topic :: Security :: Cryptography",
     ],
-    # Fill in once the repository exists, then uncomment:
-    # url="https://github.com/<you>/CryptoArithmetic",
-    # project_urls={
-    #     "Documentation": "https://github.com/<you>/CryptoArithmetic/blob/main/THEORY.md",
-    #     "Issues": "https://github.com/<you>/CryptoArithmetic/issues",
-    # },
     packages=find_packages(include=["cryptoarithmetic", "cryptoarithmetic.*"]),
     python_requires=">=3.8",
     install_requires=[],                   # standard library only
